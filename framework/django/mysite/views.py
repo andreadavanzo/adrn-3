@@ -1,6 +1,6 @@
-from django.http import HttpResponse
+from django.shortcuts import render
 from .models import Greeting
 
 def hello(request):
-    message = Greeting.fetch()
-    return HttpResponse(message, content_type="text/plain")
+    context = {'greeting': Greeting.fetch()}
+    return render(request, 'index.html', context)
