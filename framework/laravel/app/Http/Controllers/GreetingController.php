@@ -10,13 +10,16 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Greeting;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\View\View; // Import the View class
 
 class GreetingController extends Controller
 {
-  public function index(): HttpResponse
+  public function index(): View
   {
+    // Fetch the data from your model
     $text = Greeting::fetch();
 
-    return response($text, 200)->header('Content-Type', 'text/plain');
+    // Return the view 'greetings' and pass the variable
+    return view('greetings', ['greeting' => $text]);
   }
 }
