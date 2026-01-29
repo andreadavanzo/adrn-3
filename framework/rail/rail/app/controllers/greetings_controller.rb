@@ -5,7 +5,6 @@
 
 class GreetingsController < ApplicationController
   def index
-    text = Greeting.fetch  # raw SQL method
-    render plain: text
+    @greeting = "Hello from Rails!"
   end
 end
