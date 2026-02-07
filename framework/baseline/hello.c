@@ -47,7 +47,7 @@ int main() {
               strcpy(out + before + strlen(greeting),
                      pos + strlen("{{greeting}}"));
 
-              /* --- Output CGI response --- */
+              /* --- Output response --- */
               printf("Content-Type: text/html\n\n");
               printf("%s", out);
             }
