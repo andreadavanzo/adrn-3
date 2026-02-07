@@ -5,24 +5,37 @@
 
 require 'sinatra'
 require 'pg'
+require 'erb'
 
-# PostgreSQL connection settings
-DB_HOST = '192.168.37.131'
-DB_NAME = 'postgres'
-DB_USER = 'tester'
-DB_PASS = 'tester'
+# Database Configuration
+DB_CONFIG = {
+  host: '192.168.37.131',
+  dbname: 'postgres',
+  user: 'tester',
+  password: 'tester'
+}
+configure do
+  set :reload_templates, true
+  set :logging, false # Logging consumes disk I/O energy, turn off for pure ACS test
+  # Tilt.default_mapping.clear_pipeline_cache! if defined?(Tilt)
+end
+
+helpers do
+  def db_query(sql)
+    conn = PG.connect(DB_CONFIG)
+    result = conn.exec(sql)
+    conn.close
+    result
+  rescue PG::Error => e
+    halt 500, "Database Error: #{e.message}"
+  end
+end
 
 get '/' do
-  content_type 'text/plain'
+  # Fetch data from DB
+  result = db_query("SELECT 'hello world' AS greeting;")
+  @greeting = result.first['greeting']
 
-  begin
-    conn = PG.connect(host: DB_HOST, dbname: DB_NAME, user: DB_USER, password: DB_PASS)
-    result = conn.exec("SELECT 'hello world' AS greeting;")
-    row = result.first
-    row['greeting'] || 'error'
-  rescue PG::Error => e
-    "DB connection failed: #{e.message}"
-  ensure
-    conn&.close
-  end
+  # Render the 'index.erb' template
+  erb :index
 end

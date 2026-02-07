@@ -4,34 +4,32 @@
 # belong in git's global ignore instead:
 # `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`
 
-/framework/f3/tmp/*
-
 # Ignore bundler config.
-/framework/rail/.bundle
+/.bundle
 
 # Ignore all environment files.
-/framework/rail/.env*
+/.env*
 
 # Ignore all logfiles and tempfiles.
-/framework/rail/log/*
-/framework/rail/tmp/*
-!/framework/rail/log/.keep
-!/framework/rail/tmp/.keep
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
 
 # Ignore pidfiles, but keep the directory.
-/framework/rail/tmp/pids/*
-!/framework/rail/tmp/pids/
-!/framework/rail/tmp/pids/.keep
+/tmp/pids/*
+!/tmp/pids/
+!/tmp/pids/.keep
 
 # Ignore storage (uploaded files in development and any SQLite databases).
-/framework/rail/storage/*
-!/framework/rail/storage/.keep
-/framework/rail/tmp/storage/*
-!/framework/rail/tmp/storage/
-!/framework/rail/tmp/storage/.keep
+/storage/*
+!/storage/.keep
+/tmp/storage/*
+!/tmp/storage/
+!/tmp/storage/.keep
 
-/framework/rail/public/assets
+/public/assets
 
 # Ignore key files for decrypting credentials and more.
-/framework/rail/config/*.key
+/config/*.key
 

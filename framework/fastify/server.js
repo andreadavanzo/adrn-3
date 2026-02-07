@@ -12,6 +12,7 @@ fastify.register(require('@fastify/view'), {
   engine: {
     ejs: require('ejs'),
   },
+  production: true,
   root: path.join(__dirname, 'views'),
 });
 

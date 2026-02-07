@@ -28,84 +28,103 @@ echo "timestamp,event,request_num,status" > "$EVENT_LOG"
 # --------------------------------------------------
 # Pre-Test Setup
 # --------------------------------------------------
+echo ""
+echo "======================================"
 echo "--- Initializing Hardware State on remote server ---"
-ssh "$SERVER" "sh /root/performance.sh && sh /root/noturbo.sh && rm -f $MASTER_REMOTE_PATH"
+ssh -n "$SERVER" "sh /root/performance.sh && sh /root/noturbo.sh && rm -f $MASTER_REMOTE_PATH"
+echo ""
 
 # --------------------------------------------------
-# Function to run a single test
+# Pre-Test Setup: Kill EVERYTHING before starting
 # --------------------------------------------------
+echo "--- Cleaning up remote environment ---"
+ssh -n "$SERVER" "pkill -f raplog.sh; fuser -k 80/tcp; rm -f $MASTER_REMOTE_PATH"
+
 run_test() {
-    name="$1"
-    url="$2"
-    ssh_cmds="$3"
+    name=$1
+    url=$2
+    start_cmds=$3
+    stop_cmds=$4
 
-    echo ""
-    echo "======================================"
-    echo "Running test: $name"
-    echo "======================================"
-
-    # Run SSH commands safely (sequential commands)
-    if [ -n "$ssh_cmds" ]; then
-        ssh "$SERVER" "$ssh_cmds"
-        sleep 3
+    echo "--- Starting Service: $name ---"
+    if [ -n "$start_cmds" ]; then
+        ssh -n "$SERVER" "$start_cmds"
+        sleep 5
     fi
 
-    # Start RAPL logging
-    pid=$(ssh "$SERVER" "nohup sh /root/raplog.sh -o $MASTER_REMOTE_PATH -i 1 -t $name </dev/null >/dev/null 2>&1 & echo \$!")
+    # 1. START LOGGER (Using a dedicated Tag for cleanup)
+    ssh -n "$SERVER" "nohup sh /root/raplog.sh -o $MASTER_REMOTE_PATH -i 1 -t $name >/dev/null 2>&1 &"
+    sleep 2 # Let it initialize
 
-    # Loop requests
+    # 2. RUN TIME-BASED LOOP
+    req_count=0
     start_time=$(date +%s)
     end_time=$((start_time + TEST_DURATION))
-    req_count=0
 
-    while [ "$(date +%s)" -lt "$end_time" ]; do
+    while [ $(date +%s) -lt $end_time ]; do
         req_count=$((req_count + 1))
         ts=$(date +"%Y-%m-%d %H:%M:%S")
-        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url")
+        status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$url")
+
         echo "$ts,$name,$req_count,$status" >> "$EVENT_LOG"
-        printf "\r%s Request %d | Status: %s" "$name" "$req_count" "$status"
+        printf "\r--- %s | Req: %d | Stat: %s | Time Left: %ds   " \
+               "$name" "$req_count" "$status" "$((end_time - $(date +%s)))"
+
         sleep "$REQUEST_DELAY"
     done
     echo ""
 
-    # Stop RAPL logging
-    ssh "$SERVER" "kill $pid"
+    # 3. STOP SERVICE
+    if [ -n "$stop_cmds" ]; then
+        ssh -n "$SERVER" "$stop_cmds"
+    fi
+
+    # 4. KILL LOGGER AGGRESSIVELY (This is the critical fix)
+    # We kill by process name and tag to ensure no overlap
+    ssh -n "$SERVER" "pkill -f 'raplog.sh.*-t $name'"
+    sleep 2
 }
 
 # --------------------------------------------------
 # Define all tests (semicolon-separated: name;url;ssh_cmds)
 # --------------------------------------------------
 # tests="
-# baseline;http://${SERVER_HOST}/adrn-3/framework/baseline/hello_pg;rc-service nginx restart; rc-service fcgiwrap restart
-# django;http://${SERVER_HOST}/django/hello;rc-service gunicorn restart
-# express-app;http://${SERVER_HOST}/express/hello;pm2 restart express-app
-# f3;http://${SERVER_HOST}/phpfs/framework/fat-free/;rc-service php-fpm83 restart; rc-service nginx restart
-# fastify-app;http://${SERVER_HOST}/fastify/hello;pm2 restart fastify-app
-# flask;http://${SERVER_HOST}/flask/hello;rc-service flask-app restart
-# javalin;http://${SERVER_HOST}/javalin/hello;rc-service javalin-app restart
-# laravel;http://${SERVER_HOST}/phpfs/framework/laravel/public/;rc-service php-fpm83 restart; rc-service nginx restart
-# ror;http://${SERVER_HOST}/ror/hello;rc-service puma restart
-# sinatra;http://${SERVER_HOST}/sinatra/hello;rc-service sinatra restart
 # "
+
+
+
 tests="
-baseline;http://${SERVER_HOST}/adrn-3/framework/baseline/hello_pg;rc-service nginx restart; rc-service fcgiwrap restart
+baseline;http://${SERVER_HOST}/adrn-3/framework/baseline/hello_pg;rc-service nginx restart && rc-service fcgiwrap restart;rc-service nginx stop && rc-service fcgiwrap stop
+f3;http://${SERVER_HOST}/adrn-3/framework/f3/;rc-service php-fpm85 restart && rc-service nginx restart;rc-service nginx stop && rc-service php-fpm85 stop
+laravel;http://${SERVER_HOST}/adrn-3/framework/laravel/public/;rc-service php-fpm85 restart && rc-service nginx restart;rc-service nginx stop && rc-service php-fpm85 stop
+sinatra;http://${SERVER_HOST}/;cd /var/www/localhost/htdocs/adrn-3/framework/sinatra/ && nohup bundle exec puma -b tcp://0.0.0.0:80 > /dev/null 2>&1 &;pkill -f puma
+rail;http://${SERVER_HOST}/;cd /var/www/localhost/htdocs/adrn-3/framework/rail/ && nohup bundle exec puma -e production -b tcp://0.0.0.0:80 > /dev/null 2>&1 &;pkill -f puma
+flask;http://${SERVER_HOST}/adrn-3/flask/;cd /var/www/localhost/htdocs/adrn-3/framework/flask/ && rc-service nginx restart && nohup venv/bin/gunicorn -w 4 -b unix:/run/flask.sock index:app > /dev/null 2>&1 &;pkill -f gunicorn
+django;http://${SERVER_HOST}/adrn-3/django/hello;cd /var/www/localhost/htdocs/adrn-3/framework/django/ && rc-service nginx restart && nohup venv/bin/gunicorn -w 4 -b unix:/run/django.sock mysite.wsgi:application > /dev/null 2>&1 &;pkill -f gunicorn
+fastify;http://${SERVER_HOST}/adrn-3/fastify/;cd /var/www/localhost/htdocs/adrn-3/framework/fastify/ && rc-service nginx restart && pm2 -f start server.js --name fastify-app;pm2 delete fastify-app
+express-app;http://${SERVER_HOST}/adrn-3/express/;cd /var/www/localhost/htdocs/adrn-3/framework/express/ && rc-service nginx restart && pm2 -f start app.js --name express-app;pm2 delete express-app
 "
 
 # --------------------------------------------------
 # Run all tests
 # --------------------------------------------------
 echo "$tests" | while IFS= read line; do
+    # Skip empty lines
     [ -z "$line" ] && continue
 
+    # Split line into 4 fields: name; url; start_cmds; stop_cmds
     name=$(echo "$line" | cut -d';' -f1 | sed 's/^ *//;s/ *$//')
     url=$(echo "$line" | cut -d';' -f2 | sed 's/^ *//;s/ *$//')
-    ssh_cmds=$(echo "$line" | cut -d';' -f3- | sed 's/^ *//;s/ *$//')  # take all remaining fields
-
-    run_test "$name" "$url" "$ssh_cmds"
+    start_cmds=$(echo "$line" | cut -d';' -f3 | sed 's/^ *//;s/ *$//')
+    stop_cmds=$(echo "$line" | cut -d';' -f4- | sed 's/^ *//;s/ *$//')  # take rest of line for stop_cmds
+    echo ""
+    echo "--- Run test $name -> $url ---"
+    run_test "$name" "$url" "$start_cmds" "$stop_cmds"
+    echo ""
 done
 
 # --------------------------------------------------
-# Download Power Log
+# Download Log
 # --------------------------------------------------
 echo ""
 echo "======================================"
