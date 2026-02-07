@@ -5,6 +5,6 @@
 
 class GreetingsController < ApplicationController
   def index
-    @greeting = "Hello from Rails!"
+    @greeting = "Hello world"
   end
 end
