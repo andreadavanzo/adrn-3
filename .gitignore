@@ -4,13 +4,17 @@
 # belong in git's global ignore instead:
 # `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`
 
+#F3
 /framework/f3/tmp/*
+
+# laravel
+/framework/laravel/bootstrap/cache/
+
+
+##### ruby on rails section ######
 
 # Ignore bundler config.
 /framework/rail/.bundle
-
-# Ignore all environment files.
-/framework/rail/.env*
 
 # Ignore all logfiles and tempfiles.
 /framework/rail/log/*
