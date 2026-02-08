@@ -4,25 +4,15 @@
 // Copyright (c) Andrea Davanzo
 
 const express = require('express');
-const path = require('path'); // Add this!
+const path = require('path');
 const app = express();
-const sequelize = require('./config/database');
 const indexRouter = require('./routes/index');
 
-// --- VIEW ENGINE SETUP ---
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-// -------------------------
+app.set('view cache', true);
 
 app.use('/', indexRouter);
 
-(async () => {
-  try {
-    await sequelize.authenticate();
-    app.listen(3000, () => {
-      console.log('Server running on http://localhost:3000');
-    });
-  } catch (err) {
-    console.error('Unable to connect to the database:', err);
-  }
-})();
+app.listen(3000, () => {
+});

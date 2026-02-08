@@ -5,15 +5,13 @@
 
 const express = require('express');
 const router = express.Router();
-const Greeting = require('../models/Greeting');
 
-router.get('/', async (req, res) => {
-  try {
-    const greeting = await Greeting.getMessage();
-    res.render('index', { greeting: greeting?.message || 'Hello World' });
-  } catch (err) {
-    res.status(500).send('DB error: ' + err.message);
-  }
+// Synchronous route handler for baseline research
+router.get('/', (req, res) => {
+  // Hardcoded to eliminate DB I/O and latency
+  const greeting = 'hello world';
+
+  res.render('index', { greeting: greeting });
 });
 
 module.exports = router;
