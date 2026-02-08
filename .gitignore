@@ -10,6 +10,8 @@
 # laravel
 /framework/laravel/bootstrap/cache/
 
+# django
+/framework/django/mysite/__pycache__/*
 
 ##### ruby on rails section ######
 
